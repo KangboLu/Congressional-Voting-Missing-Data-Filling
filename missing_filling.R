@@ -59,8 +59,10 @@ print(optimal_k)
 library('ggplot2')
 print("- Creating graphs for MAPE vs K...")
 mape_vs_k <- data.frame(k=Ks, mape=MAPEs)
+qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="line")
+ggsave('mape_vs_k_line.png')
 qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="smooth")
-ggsave('mape_vs_k.png')
+ggsave('mape_vs_k_mooth.png')
 
 # predict votes for missing data
 ud <- formUserData(train_df[,1:3]) # train the whole dataset after evaluation
@@ -121,7 +123,7 @@ paste("MAPE:", min(test_mapes)) # 0.234935163996949
 library('ggplot2')
 print("- Creating graphs for MAPE vs Rank...")
 mapes <- data.frame(rnk=Ranks, test_mape=test_mapes)
-qplot(x=rnk, y=test_mape, data=mapes, geom="smooth")
+qplot(x=rnk, y=test_mape, data=mapes, geom="line")
 ggsave('mape_vs_rank.png')
 
 # predict votes for missing data
