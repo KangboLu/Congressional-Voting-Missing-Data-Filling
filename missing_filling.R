@@ -62,19 +62,20 @@ mape_vs_k <- data.frame(k=Ks, mape=MAPEs)
 qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="line")
 ggsave('mape_vs_k.png')
 
-#--------------------------------------------------------------------------------------------------
 # predict votes for missing data
 ud <- formUserData(train_df[,1:3]) # train the whole dataset after evaluation
 test_df[,3] <- apply(test_df, 1, function(row) round(predict(ud, ud[[row[1]]], row[2], optimal_k)))
 
-# fill the missing votes
-completeRating <- ratings
-# for (i in 1:nrow(test_df)) {
-#   voterID <- test_df[i,1]
-#   billID <- test_df[i,2]
-#   vote <- test_df[i,3]
-#   completeRating[voterID, billID] <- ifelse(vote==2, 'n', 'y')
-# }
-apply(test_df, 1, function(row) {
-  completeRating[test_df[i,1], test_df[i,2]] <- ifelse(test_df[i,3]==2, 'n', 'y')
-})
+# fill the missing votes using optimal-knn prediction
+knn_filled_data <- ratings
+for (i in 1:nrow(test_df)) {
+  voterID <- test_df[i,1]
+  billID <- test_df[i,2]
+  vote <- test_df[i,3]
+  knn_filled_data[voterID, billID] <- ifelse(vote==2, 'n', 'y')
+}
+write.table(knn_filled_data, "knn-filled-data.txt", sep=",")
+
+#---------------------
+# NMF Approach
+#---------------------
