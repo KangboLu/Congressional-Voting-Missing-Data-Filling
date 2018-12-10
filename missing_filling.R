@@ -9,31 +9,28 @@ for (i in 1:length(numNA))
 names(numNA) <- sprintf("col%s",seq(1:length(numNA)))
 print(numNA)
 
+library('rectools')
 
-# create testing and training data
-train_df <- data.frame(matrix(ncol = 4, nrow = 0))
-test_df <- data.frame(matrix(ncol = 4, nrow = 0))
-colnames(train_df) <- c("userID", "itemID", "rating", "class")
-colnames(test_df) <- c("userID", "itemID", "rating", "class")
+#---------------------
+# KNN Approach
+#---------------------
+# create testing and training dataframe
+train_df <- data.frame(matrix(ncol = 3, nrow = 0))
+test_df <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(train_df) <- c("userID", "itemID", "rating")
+colnames(test_df) <- c("userID", "itemID", "rating")
 for (rowID in 1:nrow(ratings)) {
   row <- ratings[rowID,]
   for (i in 2:17) {
     if (sum(row=="?") == 16)
-      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=NA, rating=NA, 
-                                             class=as.numeric(row[1])))
+      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=NA, rating=NA))
     if (row[i] == '?')
-      test_df <- rbind(test_df, data.frame(userID=rowID, itemID=i, rating=NA, class=as.numeric(row[1])))
+      test_df <- rbind(test_df, data.frame(userID=rowID, itemID=i, rating=NA))
     else
-      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=i, rating=as.numeric(row[i]), 
-                                             class=as.numeric(row[1])))
+      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=i, rating=as.numeric(row[i])))
   }
 }
 
-library('rectools')
-#---------------------
-# KNN Approach
-#---------------------
-# create train and test data
 # set the seed to make train test split reproducible
 set.seed(123)
 trainIdx <- sample(seq_len(nrow(train_df)), size=floor(0.80 * nrow(train_df)))
@@ -49,7 +46,7 @@ for (row in predictions) preds<- rbind(preds, row)
 MAPEs <- apply(preds, 2, function(pred) mean(abs((pred - test[,3])), na.rm=T))
 
 # output first minimum MAPE and the k for that
-paste("Min MAPE:", min(MAPEs))
+paste("Min MAPE:", min(MAPEs)) # 0.432699619771863
 k_loc <- which(MAPEs==min(MAPEs))
 optimal_k <- Ks[k_loc[1]]
 print("Best k found:")
@@ -59,7 +56,7 @@ print(optimal_k)
 library('ggplot2')
 print("- Creating graphs for MAPE vs K...")
 mape_vs_k <- data.frame(k=Ks, mape=MAPEs)
-qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="line")
+qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="smooth")
 ggsave('mape_vs_k.png')
 
 # predict votes for missing data
@@ -76,6 +73,55 @@ for (i in 1:nrow(test_df)) {
 }
 write.table(knn_filled_data, "knn-filled-data.txt", sep=",")
 
-#---------------------
-# NMF Approach
-#---------------------
+#-------------------------------
+# Matrix Factoriazation Approach
+#-------------------------------
+# create testing and training dataframe
+train_df <- data.frame(matrix(ncol = 3, nrow = 0))
+test_df <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(train_df) <- c("userID", "itemID", "rating")
+colnames(test_df) <- c("userID", "itemID", "rating")
+for (rowID in 1:nrow(ratings)) {
+  row <- ratings[rowID,]
+  for (i in 2:17) {
+    if (row[i] == '?')
+      test_df <- rbind(test_df, data.frame(userID=rowID, itemID=i, rating=NA))
+    else
+      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=i, rating=as.numeric(row[i])))
+  }
+}
+
+# 80/20 train test split 
+set.seed(123)
+trainIdx <- sample(seq_len(nrow(train_df)), size=floor(0.80 * nrow(train_df)))
+train <- train_df[trainIdx,]
+train <- train[order(train[,1], train[,2]),]
+test <- train_df[-trainIdx,]
+test <- test[order(test[,1], test[,2]),]
+
+# train NMF model and predict
+Ranks <- seq(1, 200, by=5)
+test_mapes <- vector(length=length(Ranks))
+train_mapes <- vector(length=length(Ranks))
+for (rank in Ranks) {
+  preds_test <- predict(trainReco(train, rnk=rank, nmf=T), test[,-3])
+  preds_train <- predict(trainReco(train, rnk=rank, nmf=T), train[,-3])
+  test_mapes <- c(test_mapes, mean(abs(preds_test - test[,3]), na.rm = T))
+  train_mapes <- c(train_mapes, mean(abs(preds_train - train[,3]), na.rm = T))
+}
+
+# output first minimum MAPE and the rank for that
+paste("Min Test MAPE:", min(test_mapes)) # 
+rank_loc <- which(test_mapes==min(test_mapes))
+optimal_rank <- Ranks[rank_loc]
+print("Best testset rank found:")
+print(optimal_rank)
+
+# using ggplot2 to graph the MAPE vs k line plot
+library('ggplot2')
+print("- Creating graphs for MAPE vs Rank...")
+mapes <- data.frame(rnk=Ranks, test_mape=test_mapes, train_mape=train_mapes)
+ggplot(mapes, aes(rnk)) +
+  geom_line(aes(y = test_mape, colour = "test_mape"))+
+  geom_line(aes(y = train_mape, colour = "train_mape"))
+ggsave('mape_vs_rank.png')
