@@ -103,23 +103,34 @@ test <- test[order(test[,1], test[,2]),]
 Ranks <- seq(1, 100, by=1)
 test_mapes <- vector(length=length(Ranks))
 for (rank in Ranks) {
-  preds_test <- predict(trainReco(train, rnk=rank, nmf=T), test[,-3])
+  preds_test <- round(predict(trainReco(train, rnk=rank, nmf=T), test[,-3]))
   test_mapes <- c(test_mapes, mean(abs(preds_test - test[,3]), na.rm = T))
 }
 
 # output first minimum MAPE and the rank for that
-paste("Min Test MAPE:", min(test_mapes)) # 
-rank_loc <- which(test_mapes==min(test_mapes))
-optimal_rank <- Ranks[rank_loc]
-print("Best testset rank found:")
-print(optimal_rank)
+preds.mf <- round(predict(trainReco(train, rnk=27, nmf=T), test[,-3]))
+paste("MAPE:", mean(abs(preds.mf - test[,3]), na.rm = T))
 
 # using ggplot2 to graph the MAPE vs k line plot
 library('ggplot2')
 print("- Creating graphs for MAPE vs Rank...")
 mapes <- data.frame(rnk=Ranks, test_mape=test_mapes)
-qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="smooth")
+qplot(x=rnk, y=test_mape, data=mapes, geom="smooth")
 ggsave('mape_vs_rank.png')
+
+# predict votes for missing data
+ud <- formUserData(train_df[,1:3]) # train the whole dataset after evaluation
+test_df[,3] <- round(predict(trainReco(train, rnk=27, nmf=T), test_df[,-3]))
+
+# fill the missing votes using optimal-knn prediction
+knn_filled_data <- ratings
+for (i in 1:nrow(test_df)) {
+  voterID <- test_df[i,1]
+  billID <- test_df[i,2]
+  vote <- test_df[i,3]
+  knn_filled_data[voterID, billID] <- ifelse(vote==2, 'n', 'y')
+}
+write.table(knn_filled_data, "knn-filled-data.txt", sep=",")
 
 #-------------------------------
 # Method of Moments Approach
@@ -127,4 +138,4 @@ ggsave('mape_vs_rank.png')
 # create testing and training dataframe
 mmout <- trainMM(train)
 preds.mm <- predict(mmout, test[, -3])
-paste("MAPE:" ,mean(abs(preds.mm - test[ ,3]), na.rm=T))
+paste("MAPE:" ,mean(abs(preds.mm - test[ ,3]), na.rm=T)) # 0.499323611050705
