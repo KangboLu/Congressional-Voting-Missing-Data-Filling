@@ -42,24 +42,25 @@ test <- train_df[-trainIdx,]
 ud <- formUserData(train[,1:3])
 
 # predict the training data and find the MAPE
-Ks <- seq(1, 100, by=4)
-MAPEs <- vector(mode="numeric", length=0)
-for (k in Ks) {
-  prediction <- apply(test, 1, function(row) round(predict(ud, ud[[row[1]]], row[2], k)))
-  MAPEs <- c(MAPEs, mean(abs((prediction - test[,3])),na.rm=T))
-}
+Ks <- seq(1, 300, by=3)
+predictions <- apply(test, 1, function(row) round(predict(ud, ud[[row[1]]], row[2], Ks)))
+preds<- vector()
+for (row in predictions) preds<- rbind(preds, row)
+MAPEs <- apply(preds, 2, function(pred) mean(abs((pred - test[,3])), na.rm=T))
 
-# output minimum MAPE and the k for that
+# output first minimum MAPE and the k for that
 paste("Min MAPE:", min(MAPEs))
-paste("Best k found:", 4*which(MAPEs==min(MAPEs)))
-optimal_k <- 4*which(MAPEs==min(MAPEs))
+k_loc <- which(MAPEs==min(MAPEs))
+optimal_k <- Ks[k_loc[1]]
+print("Best k found:")
+print(optimal_k)
 
 # using ggplot2 to graph the MAPE vs k line plot
 library('ggplot2')
 print("- Creating graphs for MAPE vs K...")
 mape_vs_k <- data.frame(k=Ks, mape=MAPEs)
 qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="line")
-ggsave('mean_vs_k.png')
+ggsave('mape_vs_k.png')
 
 #--------------------------------------------------------------------------------------------------
 # predict votes for missing data
