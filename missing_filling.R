@@ -100,14 +100,11 @@ test <- train_df[-trainIdx,]
 test <- test[order(test[,1], test[,2]),]
 
 # train NMF model and predict
-Ranks <- seq(1, 200, by=5)
+Ranks <- seq(1, 100, by=1)
 test_mapes <- vector(length=length(Ranks))
-train_mapes <- vector(length=length(Ranks))
 for (rank in Ranks) {
   preds_test <- predict(trainReco(train, rnk=rank, nmf=T), test[,-3])
-  preds_train <- predict(trainReco(train, rnk=rank, nmf=T), train[,-3])
   test_mapes <- c(test_mapes, mean(abs(preds_test - test[,3]), na.rm = T))
-  train_mapes <- c(train_mapes, mean(abs(preds_train - train[,3]), na.rm = T))
 }
 
 # output first minimum MAPE and the rank for that
@@ -120,8 +117,14 @@ print(optimal_rank)
 # using ggplot2 to graph the MAPE vs k line plot
 library('ggplot2')
 print("- Creating graphs for MAPE vs Rank...")
-mapes <- data.frame(rnk=Ranks, test_mape=test_mapes, train_mape=train_mapes)
-ggplot(mapes, aes(rnk)) +
-  geom_line(aes(y = test_mape, colour = "test_mape"))+
-  geom_line(aes(y = train_mape, colour = "train_mape"))
+mapes <- data.frame(rnk=Ranks, test_mape=test_mapes)
+qplot(x=Ks, y=MAPEs, data=mape_vs_k, geom="smooth")
 ggsave('mape_vs_rank.png')
+
+#-------------------------------
+# Method of Moments Approach
+#-------------------------------
+# create testing and training dataframe
+mmout <- trainMM(train)
+preds.mm <- predict(mmout, test[, -3])
+paste("MAPE:" ,mean(abs(preds.mm - test[ ,3]), na.rm=T))
