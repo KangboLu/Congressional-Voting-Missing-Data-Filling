@@ -15,6 +15,8 @@ library('rectools')
 # KNN Approach
 #---------------------
 # create testing and training dataframe
+ratings <- ratings[-249,]
+rownames(ratings) <- 1:nrow(ratings)
 train_df <- data.frame(matrix(ncol = 3, nrow = 0))
 test_df <- data.frame(matrix(ncol = 3, nrow = 0))
 colnames(train_df) <- c("userID", "itemID", "rating")
@@ -22,8 +24,6 @@ colnames(test_df) <- c("userID", "itemID", "rating")
 for (rowID in 1:nrow(ratings)) {
   row <- ratings[rowID,]
   for (i in 2:17) {
-    if (sum(row=="?") == 16)
-      train_df <- rbind(train_df, data.frame(userID=rowID, itemID=NA, rating=NA))
     if (row[i] == '?')
       test_df <- rbind(test_df, data.frame(userID=rowID, itemID=i, rating=NA))
     else
@@ -31,24 +31,27 @@ for (rowID in 1:nrow(ratings)) {
   }
 }
 
-# set the seed to make train test split reproducible
+# 80/20 train test split
 set.seed(123)
 trainIdx <- sample(seq_len(nrow(train_df)), size=floor(0.80 * nrow(train_df)))
 train <- train_df[trainIdx,]
 test <- train_df[-trainIdx,]
-ud <- formUserData(train[,1:3])
+ud <- formUserData(train_df[,1:3])
 
 # predict the training data and find the MAPE
 Ks <- seq(1, 300, by=3)
-predictions <- apply(test, 1, function(row) round(predict(ud, ud[[row[1]]], row[2], Ks)))
-preds<- vector()
-for (row in predictions) preds<- rbind(preds, row)
-MAPEs <- apply(preds, 2, function(pred) mean(abs((pred - test[,3])), na.rm=T))
+predictions <- apply(test, 1, function(row) {
+  testUser <- ud[[row[1]]]
+  testUser$itms <- testUser$itms[!testUser$itms == row[2]]
+  testUser$ratings <- NA
+  round(predict(ud, testUser, row[2], Ks))
+})
+MAPEs <- apply(predictions, 1, function(pred) mean(abs((pred - test[,3])), na.rm=T))
 
 # output first minimum MAPE and the k for that
-paste("Min MAPE:", min(MAPEs)) # 0.432699619771863
+paste("Min MAPE:", min(MAPEs)) # 0.43455098934551
 k_loc <- which(MAPEs==min(MAPEs))
-optimal_k <- Ks[k_loc[1]]
+optimal_k <- Ks[k_loc[1]] # 100
 print("Best k found:")
 print(optimal_k)
 
@@ -77,6 +80,7 @@ write.table(knn_filled_data, "knn-filled-data.txt", sep=",")
 # Matrix Factoriazation Approach
 #-------------------------------
 # create testing and training dataframe
+ratings <- ratings[-249,]
 train_df <- data.frame(matrix(ncol = 3, nrow = 0))
 test_df <- data.frame(matrix(ncol = 3, nrow = 0))
 colnames(train_df) <- c("userID", "itemID", "rating")
@@ -108,8 +112,10 @@ for (rank in Ranks) {
 }
 
 # output first minimum MAPE and the rank for that
-preds.mf <- round(predict(trainReco(train, rnk=27, nmf=T), test[,-3]))
-paste("MAPE:", mean(abs(preds.mf - test[,3]), na.rm = T))
+test_mapes <- test_mapes[test_mapes != 0]
+optimal_rank <- which(test_mapes == min(test_mapes))
+paste("Optimal Rank:", optimal_rank) # 88
+paste("MAPE:", min(test_mapes)) # 0.234935163996949
 
 # using ggplot2 to graph the MAPE vs k line plot
 library('ggplot2')
@@ -120,22 +126,14 @@ ggsave('mape_vs_rank.png')
 
 # predict votes for missing data
 ud <- formUserData(train_df[,1:3]) # train the whole dataset after evaluation
-test_df[,3] <- round(predict(trainReco(train, rnk=27, nmf=T), test_df[,-3]))
+test_df[,3] <- round(predict(trainReco(train, rnk=optimal_rank, nmf=T), test_df[,-3]))
 
 # fill the missing votes using optimal-knn prediction
-knn_filled_data <- ratings
+nmf_filled_data <- ratings
 for (i in 1:nrow(test_df)) {
   voterID <- test_df[i,1]
   billID <- test_df[i,2]
   vote <- test_df[i,3]
-  knn_filled_data[voterID, billID] <- ifelse(vote==2, 'n', 'y')
+  nmf_filled_data[voterID, billID] <- ifelse(vote==2, 'n', 'y')
 }
-write.table(knn_filled_data, "knn-filled-data.txt", sep=",")
-
-#-------------------------------
-# Method of Moments Approach
-#-------------------------------
-# create testing and training dataframe
-mmout <- trainMM(train)
-preds.mm <- predict(mmout, test[, -3])
-paste("MAPE:" ,mean(abs(preds.mm - test[ ,3]), na.rm=T)) # 0.499323611050705
+write.table(nmf_filled_data, "nmf-filled-data.txt", sep=",")
