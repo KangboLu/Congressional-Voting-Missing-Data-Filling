@@ -2,13 +2,10 @@
 Filling missing data for congressional voting dataset from UCI Machine Learning Repository
 
 ## Apply recommender systems methods to a very nonstandard RS problem, analyzing voting data in Congress. Here are the details:
-
 * The dataset is in the UCI Machine Learning Repository, under the title " Congressional Voting Records Data Set."
-* Cast this as an RS problem, with the members of Congress being the "moviegoers," the legislative bills being the "movies," and the votes (1 for yes, 0 for non-yes) being the "ratings."
 * The goal is to predict the missing votes, coded as '?' in the data.
 
 ## Data Set Information:
-
 * This data set includes votes for each of the U.S. House of Representatives Congressmen on the 16 key votes identified by the CQA. The CQA lists nine different types of votes: voted for, paired for, and announced for (these three simplified to yea), voted against, paired against, and announced against (these three simplified to nay), voted present, voted present to avoid conflict of interest, and did not vote or otherwise make a position known (these three simplified to an unknown disposition).
 
 ## Attribute Information:
